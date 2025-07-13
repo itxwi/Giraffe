@@ -2,17 +2,17 @@
 #include <Wire.h>
 
 
-float accX_offset, accY_offset, accZ_offset, gyroX_offset, gyroY_offset, gyroZ_offset;
+float accX_offset, accY_offset, accZ_offset;
 const int MPU_ADDR = 0x68;
-
-float accX, accY, accZ;
-float gyroX, gyroY, gyroZ;
-float alpha = 0.94; // ratio of gyro to acc usage, (relative to gyro)
-
-float accPitch, accRoll;
 float pitch, roll;
+float accX, accY, accZ;
+// float gyroX, gyroY, gyroZ;
+// float alpha = 0; // ratio of gyro to acc usage, (relative to gyro)
+float buzztime;
+float accPitch, accRoll;
 
-float freedom = 25;
+
+float freedom = 30;
 
 //const float noiseThreshold = 0.0;
 
@@ -23,7 +23,7 @@ void readData(){
   Wire.write(0x3B);
   Wire.endTransmission(false);
   
-  Wire.requestFrom(MPU_ADDR, 14, true);
+  Wire.requestFrom(MPU_ADDR, 8, true);
 
   // 1g = 2^14 = 16394 steps
   // each acc and gyro value are 2 bytes
@@ -34,14 +34,14 @@ void readData(){
 
   Wire.read();Wire.read();
 
-  gyroX = ((Wire.read()<<8 | Wire.read()) - gyroX_offset) / 131.0;
-  gyroY = ((Wire.read()<<8 | Wire.read()) - gyroY_offset) / 131.0;
-  gyroZ = ((Wire.read()<<8 | Wire.read()) - gyroZ_offset) / 131.0;
+  // gyroX = ((Wire.read()<<8 | Wire.read()) - gyroX_offset) / 131.0;
+  // gyroY = ((Wire.read()<<8 | Wire.read()) - gyroY_offset) / 131.0;
+  // gyroZ = ((Wire.read()<<8 | Wire.read()) - gyroZ_offset) / 131.0;
 }
 
 void calibration(){
   int32_t ax = 0, ay = 0, az = 0;
-  int32_t gx = 0, gy = 0, gz = 0;
+  // int32_t gx = 0, gy = 0, gz = 0;
 
   const int samples = 500;
   for (int i = 0; i<samples; i++){
@@ -52,7 +52,7 @@ void calibration(){
     Wire.write(0x3B);
     Wire.endTransmission(false);
     
-    Wire.requestFrom(MPU_ADDR, 14, true);
+    Wire.requestFrom(MPU_ADDR, 8, true);
 
     ax += (Wire.read()<<8 | Wire.read());
     ay += (Wire.read()<<8 | Wire.read());
@@ -60,9 +60,9 @@ void calibration(){
 
     Wire.read();Wire.read();
 
-    gx += (Wire.read()<<8 | Wire.read());
-    gy += (Wire.read()<<8 | Wire.read());
-    gz += (Wire.read()<<8 | Wire.read());
+    // gx += (Wire.read()<<8 | Wire.read());
+    // gy += (Wire.read()<<8 | Wire.read());
+    // gz += (Wire.read()<<8 | Wire.read());
 
     delay(5);
   }
@@ -72,12 +72,13 @@ void calibration(){
   accY_offset = ay / samples;
   accZ_offset = (az / samples);
 
-  gyroX_offset = gx / samples;
-  gyroY_offset = gy / samples;
-  gyroZ_offset = gz / samples;
+  // gyroX_offset = gx / samples;
+  // gyroY_offset = gy / samples;
+  // gyroZ_offset = gz / samples;
 }
 
 void setup(){
+  pinMode(5, OUTPUT);
   Serial.begin(9600);
   Wire.begin();
 
@@ -92,7 +93,7 @@ void setup(){
   calibration();
   Serial.println("end calibration");
 
-  last = millis();
+  // last = millis();
 
 }
 
@@ -100,15 +101,21 @@ void loop(){
   
   readData();
 
-  now = millis();
-  float dt = (now-last)/1000.0;
-  last = now;
+  // now = millis();
+  // float dt = (now-last)/1000.0;
+  // last = now;
 
   accPitch = atan2(accY, sqrt(accX * accX + accZ * accZ)) * 180 / PI;
   accRoll  = atan2(-accX, sqrt(accY * accY + accZ * accZ)) * 180 / PI;
 
-  pitch += gyroY*dt;
-  roll += gyroX*dt;
+  // pitch += gyroY*dt;
+  // roll += gyroX*dt;
+
+  Serial.print("Pitch: ");
+  Serial.print(accPitch, 0);
+  Serial.print("°, Roll: ");
+  Serial.print(accRoll, 0);
+  Serial.println("°");
 
   // Serial.print("accX: ");
   // Serial.print(accX, 2);
@@ -122,15 +129,17 @@ void loop(){
   // if (abs(accPitch) < noiseThreshold) accPitch = 0.0;
   // if (abs(accRoll)  < noiseThreshold) accRoll  = 0.0;
 
-  pitch = alpha * pitch + (1-alpha) * accPitch;
-  roll = alpha * roll + (1-alpha) * accRoll;
+
 
 
   // checking posture
 
-  if (freedom<abs(pitch) || (90-freedom)>abs(roll)) {
-    Serial.print("fix that shi");
-    Serial.println(millis());
+  if (freedom<abs(accPitch) || (90-freedom)>abs(accRoll)) {
+    
+    tone(5, 1000);
+  }
+  else{
+    noTone(5);
   }
   
 
