@@ -2,21 +2,37 @@
 #include <Wire.h>
 
 
+#include <map>
+
+
 float accX_offset, accY_offset, accZ_offset;
 const int MPU_ADDR = 0x68;
 float pitch, roll;
 float accX, accY, accZ;
+
+
+std::map<std::string, double> noteFrequencies = {
+    {"0", 261.63},
+    {"1", 293.66},
+    {"2", 329.63},
+    {"3", 349.23},
+    {"4", 392.00},
+    {"5", 440.00},
+    {"6", 493.88},
+    {"7", 523.25},
+};
 // float gyroX, gyroY, gyroZ;
 // float alpha = 0; // ratio of gyro to acc usage, (relative to gyro)
-float buzztime;
+
+bool beeping = false;
+int posture_delay = 2000; //miliseconds
+float now, then;
 float accPitch, accRoll;
 
-
+bool debounce1 = false;
 float freedom = 30;
 
 //const float noiseThreshold = 0.0;
-
-long last, now;
 
 void readData(){
   Wire.beginTransmission(MPU_ADDR);
@@ -63,7 +79,7 @@ void calibration(){
     // gx += (Wire.read()<<8 | Wire.read());
     // gy += (Wire.read()<<8 | Wire.read());
     // gz += (Wire.read()<<8 | Wire.read());
-
+    tone(5, noteFrequencies[i%8]);
     delay(5);
   }
 
@@ -133,16 +149,30 @@ void loop(){
 
 
   // checking posture
-
   if (freedom<abs(accPitch) || (90-freedom)>abs(accRoll)) {
-    
-    tone(5, 1000);
+    now = millis();
+    if (beeping == false){
+      then = millis();
+      beeping = true;
+    }
+    // wait 2 secs for constant bent posture
+    if (now - then > posture_delay){
+      tone(5, 1000);
+    }
   }
   else{
     noTone(5);
+    beeping = false;
   }
   
+  if (digitalRead(4) && debounce1 == false){
+    debounce1 = true;
+    calibration();
+  } 
 
+  if (not digitalRead(4)){
+    debounce1 = false;
+  }
   // Serial.print("Pitch: ");
   // Serial.print(pitch, 0);
   // Serial.print("°, Roll: ");
